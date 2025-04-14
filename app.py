@@ -10,7 +10,7 @@ def convert_time_to_minutes(time_str):
         return 0
 
 # CSVデータを処理する関数
-def process_csv_data(uploaded_file):
+def process_csv_data(uploaded_file, fuel_price):
     df = pd.read_csv(uploaded_file, encoding="cp932")
 
     df["運転時間_分"] = df["ハンドル時間－時分－"].apply(convert_time_to_minutes)
@@ -21,7 +21,6 @@ def process_csv_data(uploaded_file):
     df["平均速度_km_per_h"] = (df["走行距離_km"] / (df["運転時間_分"] / 60)).round(2)
 
     fuel_efficiency = 3.5
-    fuel_price = 160
     df["燃料使用量_L"] = (df["走行距離_km"] / fuel_efficiency).round(2)
     df["燃料費_円"] = (df["燃料使用量_L"] * fuel_price).round(0)
 
@@ -30,20 +29,31 @@ def process_csv_data(uploaded_file):
         "アイドリング率_％", "平均速度_km_per_h", "燃料使用量_L", "燃料費_円"
     ]]
 
-# Streamlitアプリのメイン部分
+# Streamlitアプリのメイン関数
 def main():
     st.title("🚚 燃費見える化くん（Web版）")
     st.write("CSVファイルをアップロードすると、燃費やコストが自動で表示されます。")
+
+    fuel_price = st.number_input("燃料単価（円/L）を入力してください", value=160, step=1)
 
     uploaded_file = st.file_uploader("CSVファイルを選んでください", type=["csv"])
 
     if uploaded_file is not None:
         try:
-            df = process_csv_data(uploaded_file)
+            df = process_csv_data(uploaded_file, fuel_price)
             st.success("データを読み込みました！")
             st.dataframe(df)
+
+            # グラフ表示
+            st.subheader("ドライバー別：燃料費")
             st.bar_chart(df.set_index("乗務員")["燃料費_円"])
+
+            st.subheader("ドライバー別：アイドリング率")
             st.bar_chart(df.set_index("乗務員")["アイドリング率_％"])
+
+            st.subheader("ドライバー別：平均速度")
+            st.bar_chart(df.set_index("乗務員")["平均速度_km_per_h"])
+
         except Exception as e:
             st.error(f"エラーが発生しました: {e}")
 
